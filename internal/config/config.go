@@ -1,4 +1,6 @@
-// Package config loads vaultpipe runtime configuration from environment variables.
+// Package config loads and validates vaultpipe configuration from environment
+// variables. All configuration is intentionally sourced from the environment
+// to avoid secrets appearing in config files or command-line arguments.
 package config
 
 import (
@@ -9,30 +11,33 @@ import (
 
 // Config holds all runtime configuration for vaultpipe.
 type Config struct {
-	// VaultAddr is the Vault server address.
+	// VaultAddr is the address of the Vault server.
 	VaultAddr string
-	// VaultToken is the Vault authentication token.
+	// VaultToken is the token used to authenticate with Vault.
 	VaultToken string
-	// SecretPaths is the list of KV paths to read.
+	// SecretPaths is the list of Vault secret paths (or path templates) to read.
 	SecretPaths []string
-	// Command is the process to execute with secrets in its environment.
-	Command []string
-	// AuditLog enables structured audit logging to stderr when true.
-	AuditLog bool
-	// LogLevel controls verbosity (debug, info, warn, error).
-	LogLevel string
+	// RenewToken controls whether the token lease should be renewed automatically.
+	RenewToken bool
+	// AuditLog is the optional file path for structured audit logging.
+	AuditLog string
 }
 
-// FromEnv reads configuration from environment variables.
+// FromEnv constructs a Config from environment variables.
+//
+//	VAULT_ADDR        - Vault server address (required)
+//	VAULT_TOKEN       - Vault auth token (required)
+//	VAULTPIPE_PATHS   - Comma-separated list of secret paths (required)
+//	VAULTPIPE_RENEW   - Set to "true" to enable token renewal (optional)
+//	VAULTPIPE_AUDIT   - File path for audit log output (optional)
 func FromEnv() (*Config, error) {
 	cfg := &Config{
 		VaultAddr:  os.Getenv("VAULT_ADDR"),
 		VaultToken: os.Getenv("VAULT_TOKEN"),
-		LogLevel:   os.Getenv("VAULTPIPE_LOG_LEVEL"),
-		AuditLog:   os.Getenv("VAULTPIPE_AUDIT") == "true",
+		AuditLog:   os.Getenv("VAULTPIPE_AUDIT"),
+		RenewToken: os.Getenv("VAULTPIPE_RENEW") == "true",
 	}
-
-	if raw := os.Getenv("VAULTPIPE_SECRET_PATHS"); raw != "" {
+	if raw := os.Getenv("VAULTPIPE_PATHS"); raw != "" {
 		for _, p := range strings.Split(raw, ",") {
 			p = strings.TrimSpace(p)
 			if p != "" {
@@ -40,31 +45,26 @@ func FromEnv() (*Config, error) {
 			}
 		}
 	}
-
-	if raw := os.Getenv("VAULTPIPE_COMMAND"); raw != "" {
-		cfg.Command = strings.Fields(raw)
+	if err := cfg.Validate(); err != nil {
+		return nil, err
 	}
-
-	if cfg.LogLevel == "" {
-		cfg.LogLevel = "info"
-	}
-
 	return cfg, nil
 }
 
-// Validate returns an error if any required fields are missing.
+// Validate checks that all required fields are present.
 func (c *Config) Validate() error {
+	var errs []string
 	if c.VaultAddr == "" {
-		return errors.New("VAULT_ADDR is required")
+		errs = append(errs, "VAULT_ADDR is required")
 	}
 	if c.VaultToken == "" {
-		return errors.New("VAULT_TOKEN is required")
+		errs = append(errs, "VAULT_TOKEN is required")
 	}
 	if len(c.SecretPaths) == 0 {
-		return errors.New("VAULTPIPE_SECRET_PATHS is required")
+		errs = append(errs, "VAULTPIPE_PATHS is required")
 	}
-	if len(c.Command) == 0 {
-		return errors.New("VAULTPIPE_COMMAND is required")
+	if len(errs) > 0 {
+		return errors.New(strings.Join(errs, "; "))
 	}
 	return nil
 }
