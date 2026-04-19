@@ -45,6 +45,17 @@ func TestRender_InvalidTemplate(t *testing.T) {
 	}
 }
 
+func TestRender_EmptyString(t *testing.T) {
+	r := template.New()
+	out, err := r.Render("")
+	if err != nil {
+		t.Fatalf("unexpected error for empty string: %v", err)
+	}
+	if out != "" {
+		t.Errorf("expected empty string, got %q", out)
+	}
+}
+
 func TestRenderAll_Mixed(t *testing.T) {
 	t.Setenv("VAULTPIPE_REGION", "us-east-1")
 	r := template.New()
