@@ -32,3 +32,9 @@ func (m *Middleware) Fetch(ctx context.Context, paths []string) (map[string]stri
 	}
 	return m.next(ctx, paths)
 }
+
+// FetchFunc returns a plain FetchFunc that delegates to this Middleware.
+// This is useful when an API expects a FetchFunc rather than a *Middleware.
+func (m *Middleware) FetchFunc() FetchFunc {
+	return m.Fetch
+}
