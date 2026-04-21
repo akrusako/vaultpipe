@@ -72,6 +72,16 @@ func (c *Client) ReadSecrets(ctx context.Context, path string) (map[string]strin
 	return flattenData(secret.Data), nil
 }
 
+// WriteSecrets writes the provided key/value pairs to the given KV v2 path.
+// It returns an error if the write operation fails.
+func (c *Client) WriteSecrets(ctx context.Context, path string, data map[string]interface{}) error {
+	_, err := c.vc.KVv2(mountFromPath(path)).Put(ctx, subpathFromPath(path), data)
+	if err != nil {
+		return fmt.Errorf("vault: write %q failed: %w", path, err)
+	}
+	return nil
+}
+
 func mountFromPath(path string) string {
 	for i, c := range path {
 		if c == '/' {
