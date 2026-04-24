@@ -47,6 +47,9 @@ func NewWatcher(tracker *Tracker, cfg WatcherConfig) *Watcher {
 func (w *Watcher) Watch(ctx context.Context) {
 	ticker := time.NewTicker(w.cfg.Interval)
 	defer ticker.Stop()
+	// Run an immediate check before waiting for the first tick so that
+	// expiring leases are surfaced without waiting a full interval.
+	w.check()
 	for {
 		select {
 		case <-ctx.Done():
