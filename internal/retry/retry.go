@@ -31,6 +31,9 @@ func DefaultConfig() Config {
 
 // Do calls fn up to cfg.MaxAttempts times, backing off exponentially.
 // It stops early if ctx is cancelled or fn returns a non-retryable error.
+// If all attempts are exhausted, ErrMaxAttempts is returned wrapping the
+// last error encountered, so callers can inspect the underlying cause via
+// errors.Unwrap or errors.Is.
 func Do(ctx context.Context, cfg Config, fn func() error) error {
 	delay := cfg.InitialDelay
 	var lastErr error
@@ -58,8 +61,23 @@ func Do(ctx context.Context, cfg Config, fn func() error) error {
 			}
 		}
 	}
-	return ErrMaxAttempts
+	return &maxAttemptsError{cause: lastErr}
 }
+
+// maxAttemptsError is returned when all retry attempts are exhausted,
+// wrapping the last error so callers can inspect the root cause.
+type maxAttemptsError struct {
+	cause error
+}
+
+func (e *maxAttemptsError) Error() string {
+	if e.cause != nil {
+		return ErrMaxAttempts.Error() + ": " + e.cause.Error()
+	}
+	return ErrMaxAttempts.Error()
+}
+func (e *maxAttemptsError) Unwrap() error { return e.cause }
+func (e *maxAttemptsError) Is(target error) bool { return target == ErrMaxAttempts }
 
 // NonRetryableError wraps an error to signal that retry should stop immediately.
 type NonRetryableError struct {
