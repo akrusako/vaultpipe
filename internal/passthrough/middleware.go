@@ -14,7 +14,8 @@ type Middleware struct {
 }
 
 // NewMiddleware returns a Middleware that applies pt to the host environment
-// and merges the result into secrets returned by next.
+// and merges the result into secrets returned by next. If pt is nil, a
+// default Passthrough instance (allowing no variables) is used.
 func NewMiddleware(pt *Passthrough, next SecretFetcher) *Middleware {
 	if pt == nil {
 		pt = New()
@@ -24,6 +25,7 @@ func NewMiddleware(pt *Passthrough, next SecretFetcher) *Middleware {
 
 // Fetch calls the underlying SecretFetcher, then injects allowed host
 // environment variables that are not already present in the secrets map.
+// Vault secrets always take precedence over host environment variables.
 func (m *Middleware) Fetch() (map[string]string, error) {
 	secrets, err := m.next()
 	if err != nil {
@@ -41,4 +43,11 @@ func (m *Middleware) Fetch() (map[string]string, error) {
 		merged[k] = v
 	}
 	return merged, nil
+}
+
+// AsSecretFetcher returns the Middleware's Fetch method as a SecretFetcher,
+// allowing a Middleware to be composed with another Middleware or used
+// anywhere a SecretFetcher is accepted.
+func (m *Middleware) AsSecretFetcher() SecretFetcher {
+	return m.Fetch
 }
