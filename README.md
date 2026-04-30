@@ -39,6 +39,7 @@ Secrets at the specified path are resolved and injected as environment variables
 | `--token` | Vault token | `$VAULT_TOKEN` |
 | `--path` | Secret path to read | *(required)* |
 | `--prefix` | Prefix for injected env vars | *(none)* |
+| `--mount` | KV secrets engine mount path | `secret` |
 
 **Authentication** falls back to standard Vault environment variables (`VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_ROLE_ID`, etc.) if flags are not provided.
 
@@ -50,6 +51,20 @@ Secrets at the specified path are resolved and injected as environment variables
 2. Fetches secrets from the specified path
 3. Merges secrets into the current environment
 4. Executes the given command via `execve` — no subprocess, no temp files
+
+---
+
+## Multiple Paths
+
+You can specify `--path` more than once to inject secrets from multiple Vault paths. If the same key exists in multiple paths, the last one wins:
+
+```bash
+vaultpipe \
+  --addr https://vault.example.com \
+  --path secret/data/myapp/db \
+  --path secret/data/myapp/api \
+  -- ./server
+```
 
 ---
 
